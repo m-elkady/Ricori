@@ -1,0 +1,57 @@
+name: ricori-challenge
+x-app: &app
+  build: .
+  environment: &env
+    DATABASE_URL: postgres://ricori:ricori_local_only@db:5432/ricori
+    PORT: "3100"
+  init: true
+services:
+  db:
+    image: postgres:17.11-bookworm
+    environment:
+      POSTGRES_USER: ricori
+      POSTGRES_PASSWORD: ricori_local_only
+      POSTGRES_DB: ricori
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - ricori-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ricori -d ricori"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  setup:
+    <<: *app
+    command: ["sh", "-c", "npm run migrate && npm run seed"]
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    <<: *app
+    command: ["node", "dist/src/server.js"]
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  worker:
+    <<: *app
+    command: ["node", "dist/src/worker.js"]
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+  tests:
+    <<: *app
+    profiles: ["test"]
+    command: ["sh", "-c", "node scripts/check-container.mjs && npm test"]
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+volumes:
+  ricori-data:

@@ -1,0 +1,4 @@
+{
+  "title": "Synthetic utility invoice",
+  "source": { "issuer": "Example Utilities", "amountCents": 4200, "currency": "EUR", "dueDate": "2027-01-15" }
+}

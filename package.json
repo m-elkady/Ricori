@@ -1,0 +1,29 @@
+{
+  "name": "ricori-document-service",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/src/server.js",
+    "worker": "node dist/src/worker.js",
+    "migrate": "node dist/src/migrate.js",
+    "seed": "node dist/src/seed.js",
+    "test": "npm run build && node --test --test-concurrency=1 dist/test/basic.test.js",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "dependencies": {
+    "fastify": "5.12.8",
+    "pg": "8.16.3",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@types/pg": "8.15.6",
+    "typescript": "5.9.3"
+  }
+}
