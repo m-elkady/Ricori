@@ -1,17 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { PoolClient } from 'pg';
 import { transaction, type Database } from './db.js';
 import { HttpError, type CreateDocument, type Document, type ReviewDocument } from './domain.js';
 import { publishDocument, readListing } from './listing.js';
+import { enqueue } from './queue.js';
 
-async function enqueue(client: PoolClient, document: Document) {
-  const id = randomUUID();
-  await client.query(
-    'INSERT INTO jobs(id,document_id,tenant_id,payload,source_version) VALUES($1,$2,$3,$4,$5)',
-    [id, document.id, document.tenant_id, { title: document.title, source: document.source }, document.processing_version]
-  );
-  return id;
-}
 export async function createDocument(db: Database, tenant: string, input: CreateDocument) {
   return transaction(db, async client => {
     const result = await client.query<Document>(
