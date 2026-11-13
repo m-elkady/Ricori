@@ -29,14 +29,16 @@ export async function applyResult(db: Database, delivery: ProcessingDelivery): P
 interface HistoryEntry { id: string; job_id: string; fields: Fields; created_at: Date }
 export function createHistoryReader(db: Database) {
   const cache = createReadCache<HistoryEntry[]>(30_000, 100);
-  return async (tenant: string, documentId: string) => cache.read(documentId, async () => {
+  return async (tenant: string, documentId: string) => {
     await getDocument(db, tenant, documentId);
-    const result = await db.query<HistoryEntry>(
-      `SELECT r.id,r.job_id,r.fields,r.created_at FROM processing_results r
-       JOIN documents d ON d.id=r.document_id
-       WHERE r.document_id=$1 AND d.tenant_id=$2 AND d.deleted_at IS NULL ORDER BY r.created_at,r.id`,
-      [documentId, tenant]
-    );
-    return result.rows;
-  });
+    return cache.read(`${documentId}:${tenant}`, async () => {
+      const result = await db.query<HistoryEntry>(
+        `SELECT r.id,r.job_id,r.fields,r.created_at FROM processing_results r
+         JOIN documents d ON d.id=r.document_id
+         WHERE r.document_id=$1 AND d.tenant_id=$2 AND d.deleted_at IS NULL ORDER BY r.created_at,r.id`,
+        [documentId, tenant]
+      );
+      return result.rows;
+    });
+  };
 }
