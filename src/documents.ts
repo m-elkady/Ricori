@@ -37,7 +37,8 @@ export async function listDocuments(db: Database, tenant: string) {
 export async function reviewDocument(db: Database, tenant: string, id: string, input: ReviewDocument) {
   return transaction(db, async client => {
     const result = await client.query<Document>(
-      `UPDATE documents SET fields=fields || $3::jsonb,status='reviewed',revision=revision+1,updated_at=now()
+      `UPDATE documents SET fields=fields || $3::jsonb,status='reviewed',
+      revision=revision+1, processing_version=processing_version+1, updated_at=now()
        WHERE id=$1 AND tenant_id=$2 AND revision=$4 AND deleted_at IS NULL RETURNING *`,
       [id, tenant, input.fields, input.expectedRevision]
     );
