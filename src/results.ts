@@ -4,6 +4,7 @@ import { getDocument } from './documents.js';
 import type { Document, Fields, ProcessingDelivery } from './domain.js';
 import { createReadCache } from './read-cache.js';
 import { acknowledgeJob } from './queue.js';
+import { publishDocument } from './listing.js';
 
 export async function applyResult(db: Database, delivery: ProcessingDelivery): Promise<Document | undefined> {
   const { job, fields, receiptKey } = delivery;
@@ -27,9 +28,8 @@ export async function applyResult(db: Database, delivery: ProcessingDelivery): P
        WHERE id=$1 AND tenant_id=$2 AND processing_version=$4 AND deleted_at IS NULL RETURNING *`,
       [job.document_id, job.tenant_id, fields, job.source_version]
     );
-    if (!updated.rows[0]) {
-      await client.query('DELETE FROM processing_results WHERE id=$1', [received.rows[0].id]);
-    }
+    if (updated.rows[0]) await publishDocument(client, updated.rows[0]);
+    else await client.query('DELETE FROM processing_results WHERE id=$1', [received.rows[0].id]);
     return updated.rows[0];
   });
 }

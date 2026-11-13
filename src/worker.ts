@@ -4,15 +4,13 @@ import { createPool, type Database } from './db.js';
 import { claimJob, retryJob } from './queue.js';
 import { extract } from './processor.js';
 import { applyResult } from './results.js';
-import { publishDocument } from './listing.js';
 
 export async function runOnce(db: Database, jobId?: string): Promise<boolean> {
   const job = await claimJob(db, jobId);
   if (!job) return false;
   try {
     const fields = await extract(job);
-    const document = await applyResult(db, { job, fields, receiptKey: job.id });
-    if (document) await publishDocument(db, document);
+    await applyResult(db, { job, fields, receiptKey: job.id });
     return true;
   } catch (error) {
     await retryJob(db, job, error);

@@ -58,6 +58,10 @@ export async function reprocessDocument(db: Database, tenant: string, id: string
 }
 export async function deleteDocument(db: Database, tenant: string, id: string) {
   await transaction(db, async client => {
+    await client.query(
+      "UPDATE jobs SET status='cancelled',lease_until=NULL WHERE document_id=$1 AND tenant_id=$2 AND status IN ('queued','running')",
+      [id, tenant]
+    );
     const result = await client.query(
       `UPDATE documents SET deleted_at=now(),status='deleted',revision=revision+1,
        processing_version=processing_version+1,updated_at=now()
@@ -65,6 +69,5 @@ export async function deleteDocument(db: Database, tenant: string, id: string) {
     );
     if (!result.rowCount) throw new HttpError(404, 'Document not found');
     await client.query('DELETE FROM document_listing WHERE document_id=$1 AND tenant_id=$2', [id, tenant]);
-    await client.query("UPDATE jobs SET status='cancelled' WHERE document_id=$1 AND status='queued'", [id]);
   });
 }

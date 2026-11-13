@@ -46,7 +46,7 @@ export async function acknowledgeJob(db: Database | PoolClient, job: Job) {
 export async function retryJob(db: Database, job: Job, error: unknown) {
   await db.query(
     `UPDATE jobs SET status=CASE WHEN attempts>=5 THEN 'failed' ELSE 'queued' END,
-      lease_until=NULL,available_at=now(),last_error=$3 WHERE id=$1 AND claim_token=$2`,
+      lease_until=NULL,available_at=now(),last_error=$3 WHERE id=$1 AND claim_token=$2 AND status='running'`,
     [job.id, job.claim_token, error instanceof Error ? error.message.slice(0,300) : 'Processing failed']
   );
 }
