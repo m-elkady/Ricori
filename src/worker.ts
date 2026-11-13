@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createPool, type Database } from './db.js';
-import { acknowledgeJob, claimJob, retryJob } from './queue.js';
+import { claimJob, retryJob } from './queue.js';
 import { extract } from './processor.js';
 import { applyResult } from './results.js';
 import { publishDocument } from './listing.js';
@@ -11,9 +11,8 @@ export async function runOnce(db: Database, jobId?: string): Promise<boolean> {
   if (!job) return false;
   try {
     const fields = await extract(job);
-    const document = await applyResult(db, { job, fields, receiptKey: job.claim_token });
+    const document = await applyResult(db, { job, fields, receiptKey: job.id });
     if (document) await publishDocument(db, document);
-    await acknowledgeJob(db, job);
     return true;
   } catch (error) {
     await retryJob(db, job, error);

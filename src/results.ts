@@ -3,16 +3,24 @@ import { transaction, type Database } from './db.js';
 import { getDocument } from './documents.js';
 import type { Document, Fields, ProcessingDelivery } from './domain.js';
 import { createReadCache } from './read-cache.js';
+import { acknowledgeJob } from './queue.js';
 
 export async function applyResult(db: Database, delivery: ProcessingDelivery): Promise<Document | undefined> {
   const { job, fields, receiptKey } = delivery;
   return transaction(db, async client => {
+    const held = await client.query(
+      "SELECT 1 FROM jobs WHERE id=$1 AND claim_token=$2 AND status='running' FOR UPDATE",
+      [job.id, job.claim_token]
+    );
+    if (!held.rowCount) return undefined;
+    await acknowledgeJob(client, job);
     const received = await client.query<{ id: string }>(
       `INSERT INTO processing_results(id,job_id,document_id,fields,receipt_key) VALUES($1,$2,$3,$4,$5)
        ON CONFLICT (receipt_key) DO NOTHING RETURNING id`,
       [randomUUID(), job.id, job.document_id, fields, receiptKey]
     );
     if (!received.rows[0]) return undefined;
+    
     const updated = await client.query<Document>(
       `UPDATE documents SET fields=$3,status='ready',revision=revision+1,
        result_count=result_count+1,updated_at=now()

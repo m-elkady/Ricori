@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { PoolClient } from 'pg';
 import { transaction, type Database } from './db.js';
 import type { Job } from './domain.js';
 
@@ -27,7 +28,7 @@ export async function claimJob(db: Database, jobId?: string): Promise<Job | unde
     return job;
   });
 }
-export async function acknowledgeJob(db: Database, job: Job) {
+export async function acknowledgeJob(db: Database | PoolClient, job: Job) {
   await db.query(
     "UPDATE jobs SET status='completed',lease_until=NULL,last_error=NULL WHERE id=$1 AND claim_token=$2",
     [job.id, job.claim_token]
