@@ -35,15 +35,19 @@ export async function listDocuments(db: Database, tenant: string) {
   return readListing(db, tenant);
 }
 export async function reviewDocument(db: Database, tenant: string, id: string, input: ReviewDocument) {
-  const current = await getDocument(db, tenant, id);
-  if (input.expectedRevision !== current.revision) throw new HttpError(409, 'Revision conflict');
   return transaction(db, async client => {
     const result = await client.query<Document>(
       `UPDATE documents SET fields=fields || $3::jsonb,status='reviewed',revision=revision+1,updated_at=now()
-       WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL RETURNING *`,
-      [id, tenant, input.fields]
+       WHERE id=$1 AND tenant_id=$2 AND revision=$4 AND deleted_at IS NULL RETURNING *`,
+      [id, tenant, input.fields, input.expectedRevision]
     );
-    if (!result.rows[0]) throw new HttpError(404, 'Document not found');
+    if (!result.rows[0]){
+      const existing = await client.query<Document>(
+        'SELECT 1 FROM documents WHERE id=$1 AND tenant_id=$2 AND deleted_at IS NULL', [id, tenant]
+      );
+      if (existing.rowCount) throw new HttpError(409, 'Revision conflict');
+      throw new HttpError(404, 'Document not found');
+    }
     await publishDocument(client, result.rows[0]);
     return result.rows[0];
   });
